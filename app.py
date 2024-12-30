@@ -1,7 +1,6 @@
 import openai
 import json
 import pinecone
-from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
