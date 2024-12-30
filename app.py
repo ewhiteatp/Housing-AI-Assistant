@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 import pinecone
 
-# Set API keys securely using Streamlit Secrets
+# Access API keys securely from Streamlit Secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 pinecone.init(
     api_key=st.secrets["PINECONE_API_KEY"],
@@ -17,6 +17,7 @@ st.write("Upload a PDF document and ask questions about its content.")
 uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
 if uploaded_file:
     st.success(f"File uploaded successfully: {uploaded_file.name}")
-    # Process PDF and enable question answering (you can expand this part)
+    # Placeholder for processing and question answering
+    st.write("This is where PDF processing and AI answering will happen.")
 else:
     st.info("Please upload a file to proceed.")
