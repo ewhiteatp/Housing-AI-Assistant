@@ -17,8 +17,6 @@ st.write("Upload a PDF document and ask questions about its content.")
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Initialize Pinecone using the new Pinecone class
-from pinecone import Pinecone, ServerlessSpec
-
 pc = Pinecone(
     api_key=st.secrets["PINECONE_API_KEY"]
 )
@@ -40,11 +38,9 @@ if INDEX_NAME not in pc.list_indexes().names():
 
 # Initialize Vector Store
 embeddings = OpenAIEmbeddings(openai_api_key=openai.api_key)
-vector_store = PineconeVectorStore(
-    api_key=st.secrets["PINECONE_API_KEY"],
-    environment=st.secrets["PINECONE_ENVIRONMENT"],
+vector_store = PineconeVectorStore.from_existing_index(
     index_name=INDEX_NAME,
-    embedding_function=embeddings.embed_query
+    embedding=embeddings
 )
 
 # File Upload Section
@@ -68,7 +64,7 @@ if uploaded_file:
         documents = [{"page_content": chunk, "metadata": {"source": uploaded_file.name}} for chunk in chunks]
 
         # Add documents to Pinecone Vector Store
-        vector_store.from_documents(documents, embedding=embeddings)
+        vector_store.add_documents(documents)
         st.success("PDF uploaded and indexed successfully!")
     except Exception as e:
         st.error(f"Error processing the PDF: {e}")
