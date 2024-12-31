@@ -17,6 +17,8 @@ st.write("Upload a PDF document and ask questions about its content.")
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Initialize Pinecone using the new Pinecone class
+from pinecone import Pinecone, ServerlessSpec
+
 pc = Pinecone(
     api_key=st.secrets["PINECONE_API_KEY"]
 )
