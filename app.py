@@ -1,8 +1,8 @@
 import streamlit as st
 import openai
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings.openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
-from langchain_community.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.chains import RetrievalQA
 from langchain_community.chat_models import ChatOpenAI
 from io import BytesIO
