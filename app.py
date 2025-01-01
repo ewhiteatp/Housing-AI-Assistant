@@ -1,13 +1,13 @@
 import streamlit as st
 import openai
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pinecone import Pinecone, ServerlessSpec
 from langchain_community.embeddings.openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
-from langchain_community.chains import RetrievalQA
+from langchain.chains import RetrievalQAWithSourcesChain
 from langchain_community.chat_models import ChatOpenAI
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from io import BytesIO
 import PyPDF2
-import pinecone
 
 # Streamlit App Configuration
 st.title("Housing AI Assistant")
@@ -16,25 +16,30 @@ st.write("Upload a PDF document and ask questions about its content.")
 # Access API keys securely from Streamlit Secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Initialize Pinecone using the Pinecone class
-pinecone.init(
-    api_key=st.secrets["PINECONE_API_KEY"],
-    environment=st.secrets["PINECONE_ENVIRONMENT"]
+# Initialize Pinecone
+pc = Pinecone(
+    api_key=st.secrets["PINECONE_API_KEY"]
 )
 
 # Define the Pinecone index name
 INDEX_NAME = "housing-ai-index"
 
 # Check if the index exists and create it if it doesn't
-if INDEX_NAME not in pinecone.list_indexes():
-    pinecone.create_index(
+if INDEX_NAME not in pc.list_indexes().names():
+    pc.create_index(
         name=INDEX_NAME,
         dimension=1536,  # Dimension of OpenAI embeddings
-        metric="cosine"  # Use "cosine" for similarity
+        metric="cosine",  # Use "cosine" for similarity
+        spec=ServerlessSpec(
+            cloud="aws",
+            region=st.secrets["PINECONE_ENVIRONMENT"]
+        )
     )
 
-# Initialize Pinecone Vector Store
-index = pinecone.Index(INDEX_NAME)
+# Initialize the index
+index = pc.index(INDEX_NAME)
+
+# Initialize Vector Store
 embeddings = OpenAIEmbeddings(openai_api_key=openai.api_key)
 vector_store = PineconeVectorStore(index, embedding_function=embeddings.embed_query)
 
@@ -78,7 +83,7 @@ if question:
     try:
         # Create a retriever and QA chain
         retriever = vector_store.as_retriever()
-        qa_chain = RetrievalQA.from_chain_type(
+        qa_chain = RetrievalQAWithSourcesChain.from_chain_type(
             llm=ChatOpenAI(openai_api_key=openai.api_key, model="gpt-4"),
             retriever=retriever
         )
