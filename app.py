@@ -37,7 +37,7 @@ if INDEX_NAME not in pc.list_indexes().names():
     )
 
 # Initialize the index
-index = pc.index(INDEX_NAME)
+index = pc.get_index(INDEX_NAME)
 
 # Initialize Vector Store
 embeddings = OpenAIEmbeddings(openai_api_key=openai.api_key)
