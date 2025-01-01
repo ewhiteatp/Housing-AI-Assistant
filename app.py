@@ -8,6 +8,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from io import BytesIO
 import PyPDF2
+import pinecone
 
 # Streamlit App Configuration
 st.title("Housing AI Assistant")
@@ -17,27 +18,24 @@ st.write("Upload a PDF document and ask questions about its content.")
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # Initialize Pinecone
-pc = Pinecone(
-    api_key=st.secrets["PINECONE_API_KEY"]
+pinecone.init(
+    api_key=st.secrets["PINECONE_API_KEY"],
+    environment=st.secrets["PINECONE_ENVIRONMENT"]
 )
 
 # Define the Pinecone index name
 INDEX_NAME = "housing-ai-index"
 
 # Check if the index exists and create it if it doesn't
-if INDEX_NAME not in pc.list_indexes().names():
-    pc.create_index(
+if INDEX_NAME not in pinecone.list_indexes():
+    pinecone.create_index(
         name=INDEX_NAME,
         dimension=1536,  # Dimension of OpenAI embeddings
-        metric="cosine",  # Use "cosine" for similarity
-        spec=ServerlessSpec(
-            cloud="aws",
-            region=st.secrets["PINECONE_ENVIRONMENT"]
-        )
+        metric="cosine"  # Use "cosine" for similarity
     )
 
 # Initialize the index
-index = pc.get_index(INDEX_NAME)
+index = pinecone.Index(INDEX_NAME)
 
 # Initialize Vector Store
 embeddings = OpenAIEmbeddings(openai_api_key=openai.api_key)
