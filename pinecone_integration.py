@@ -1,102 +1,71 @@
 import os
-from pinecone import Pinecone
-import openai
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-import uuid
+import pinecone
+from dotenv import load_dotenv
 
-# Replace with your actual API keys
-pinecone.init(
-    api_key=os.getenv("PINECONE_API_KEY"),
-    environment="us-west-2"
-)
-import os
-openai.api_key = os.getenv("OPENAI_API_KEY")
-# Initialize OpenAI
-openai.api_key = OPENAI_API_KEY
+# Load environment variables from the .env file
+load_dotenv()
+
+# Retrieve Pinecone API key and environment from .env
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_ENVIRONMENT = os.getenv("PINECONE_ENVIRONMENT")
+
+# Ensure the API key and environment are set
+if not PINECONE_API_KEY or not PINECONE_ENVIRONMENT:
+    raise ValueError("Pinecone API key or environment is missing. Please check your .env file.")
 
 # Initialize Pinecone
-pc = Pinecone(api_key=PINECONE_API_KEY)
-index_name = "housing-ai-index"  # Replace with your Pinecone index name
-index = pc.Index(index_name)
-print(f"Connected to Pinecone index: {index_name}")
+pinecone.init(
+    api_key=PINECONE_API_KEY,
+    environment=PINECONE_ENVIRONMENT
+)
 
-# Function to generate embeddings using OpenAI
-def get_embedding(text, model="text-embedding-ada-002"):
-    """Generate embeddings using OpenAI's API."""
-    try:
-        response = openai.Embedding.create(input=text, model=model)
-        embedding = response["data"][0]["embedding"]  # Access embedding vector correctly
-        return embedding
-    except Exception as e:
-        print(f"Error generating embedding: {e}")
-        return None
+# Define index name and dimension
+INDEX_NAME = "housing-ai"
+DIMENSION = 512  # Replace with the correct vector dimension for your use case
 
-# Function to chunk text
-def chunk_text(content, chunk_size=1000, chunk_overlap=200):
-    """Split text into manageable chunks."""
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    return splitter.split_text(content)
+# Create or connect to an index
+if INDEX_NAME not in pinecone.list_indexes():
+    print(f"Creating Pinecone index '{INDEX_NAME}'...")
+    pinecone.create_index(name=INDEX_NAME, dimension=DIMENSION)
 
-# Function to upload chunks to Pinecone
-def upload_to_pinecone(chunks, index):
-    """Upload text chunks to Pinecone as vectors."""
-    for chunk in chunks:
-        try:
-            vector = get_embedding(chunk)
-            if vector:
-                metadata = {"source": "Document Title"}  # Customize metadata
-                index.upsert([(str(uuid.uuid4()), vector, metadata)])  # Upload to Pinecone
-        except Exception as e:
-            print(f"Error uploading chunk: {e}")
+index = pinecone.Index(INDEX_NAME)
 
-# Function to query Pinecone
-def query_pinecone(question, index, top_k=5):
-    """Retrieve relevant chunks from Pinecone."""
-    try:
-        query_vector = get_embedding(question)
-        if query_vector:
-            results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
-            return [match["metadata"]["source"] for match in results["matches"]]
-        else:
-            print("Error: Unable to generate query vector.")
-            return []
-    except Exception as e:
-        print(f"Error querying Pinecone: {e}")
-        return []
-
-# Generate AI response using retrieved context
-def generate_response(question, index):
-    """Generate a response using OpenAI's GPT model."""
-    retrieved_chunks = query_pinecone(question, index)
-    context = " ".join(retrieved_chunks)
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an AI specializing in housing policies and regulations."},
-                {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"}
-            ]
-        )
-        return response.choices[0].message["content"]
-    except Exception as e:
-        print(f"Error querying OpenAI: {e}")
-        return "An error occurred while generating the response."
-
-# Example Workflow
-if __name__ == "__main__":
-    # Example text for ingestion
-    document_text = """
-    HUD regulations require that rent calculations consider income inclusions and exclusions. 
-    Adjusted income is determined by subtracting eligible deductions from the total annual income. 
-    HOTMA updates have introduced new thresholds for asset limits.
+# Function to upsert vectors
+def upsert_vectors(vectors: list[tuple[str, list[float]]]):
     """
+    Upserts vectors into the Pinecone index.
 
-    # Chunk and upload to Pinecone
-    chunks = chunk_text(document_text)
-    upload_to_pinecone(chunks, index)
-    print(f"Uploaded {len(chunks)} chunks to Pinecone.")
+    Args:
+        vectors (list): A list of tuples (id, vector).
+    """
+    print(f"Upserting {len(vectors)} vectors...")
+    index.upsert(vectors=vectors)
 
-    # Query and get a response
-    question = "What are the income exclusions under HOTMA?"
-    answer = generate_response(question, index)
-    print("AI Response:", answer)
+# Function to query vectors
+def query_vector(vector: list[float], top_k: int = 10):
+    """
+    Queries the Pinecone index with a given vector.
+
+    Args:
+        vector (list): The vector to query.
+        top_k (int): The number of top results to return.
+
+    Returns:
+        dict: Query results from Pinecone.
+    """
+    print("Querying the Pinecone index...")
+    return index.query(vector=vector, top_k=top_k, include_metadata=True)
+
+# Example usage
+if __name__ == "__main__":
+    # Test Pinecone connection
+    print("Pinecone indexes:", pinecone.list_indexes())
+
+    # Example vector (must match the dimension of the index)
+    example_vectors = [("id1", [0.1] * DIMENSION)]
+    upsert_vectors(example_vectors)
+
+    # Query the index with an example vector
+    query_result = query_vector([0.1] * DIMENSION)
+    print("Query result:", query_result)
+
